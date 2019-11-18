@@ -1,0 +1,60 @@
+#!/usr/bin/python3
+from os import system as execute
+from sys import argv, exit, stderr
+
+if '-h' in argv:
+    print("""
+tsession: is a session maker for tmux
+
+tsession [opitions]
+
+Options:
+
+-n --name   <name>    Name of Session
+
+-l --layout <layout>  Layout of a current window
+                       vertical:   "- <cmd>"
+                       horizontal: "| <cmd>"
+                           <cmd> is optional
+
+-e --execute <cmd>    A command for single window
+                      or first panel of layout
+
+l  launch             Launch session saved on
+                      current directory
+""".strip())
+
+if argv[1] == 'l' or argv[2] == 'launch':
+    if execute('bash ./.tmux > /dev/null') > 0:
+        print('tsession: A ".tmux" file is not on current directory',
+              file=stderr)
+        exit(1)
+    exit(0)
+else:
+    name = argv[argv.index("-n")+1] if "-n" in argv else (
+        argv[argv.index("--name")+1] if "--name" in argv else "session")
+    exe = "'{}'".format(argv[argv.index("-e")+1]) if "-e" in argv else (
+        "'{}'".format(argv[argv.index("--execute")+1]) if ("--execute" in
+                                                           argv) else "")
+
+    layout = argv[argv.index("-l")+1:] if "-l" in argv else (
+        argv[argv.index("--layout")+1:] if "--layout" in argv else None)
+
+    command = "tmux new -d -s {} {}\n".format(name, exe)
+    if layout:
+        for i in range(len(layout)):
+            if layout[i] == '-' or layout[i] == '|':
+                cmd = ''
+                if len(layout) > i+1:
+                    if layout[i+1] != '-' and layout[i+1] != '|':
+                        cmd = "'{}'".format(layout[i+1])
+                command += "tmux split-window -{} {}\n".format(
+                    'v' if layout[i] == '-' else 'h', cmd
+                )
+    command += "tmux a -t {}".format(name)
+
+    open(".tmux", "w").write(
+        '#!/bin/bash\n{}'.format(command)
+    )
+
+    exit(execute(command))
